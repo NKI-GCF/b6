@@ -152,43 +152,6 @@ static char* fab2_init(fab2_t *sq)
 	}
 	return b;
 }
-/*
-static inline uint64_t log2(uint64_t v)
-{
-	uint64_t r, shift;
-	r = (v > 0xFFFFFFFF) << 5; v >>= r;
-	shift = (v > 0xFFFF) << 4; v >>= shift; r |= shift;
-	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
-	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
-	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
-	return r | (v >> 1);
-}
-
-static unsigned fa_calc_entropy(const char* nts, unsigned ct, uint64_t* counts, unsigned asize)
-{
-	unsigned size = 0, entropy = 0;
-	memset(counts, 0, sizeof(uint64_t) * asize);
-	while (ct--) {
-		unsigned c = b6(*nts);
-		if (isb6(c)) { // N's are not counted.
-			counts[c >> 1]++;
-			size++;
-		}
-		++nts;
-	}
-	for (ct = asize; ct; --ct) {
-		if (counts[ct] != 0) { // todo: size power of two log2
-
-			// factor must be gt size * size to be able to distinguish
-			// entropy in nt_entr[i] == (size-1) from nt_entr[i] == size
-			// but maybe distinction up to 63 / 64 is enough
-			// (64 times A doesn't occurr very often). => size * 64
-			entropy += -counts[ct] * factor / size * log2(counts[ct] / size);
-		}
-	}
-	return entropy;
-}
-*/
 
 #define err_goto(ret, value, label) do {	\
 		(ret) = (value);		\
