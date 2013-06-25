@@ -16,13 +16,29 @@ void test_b6() {
 	printf("rev: %c(0x%x) => 0x%x, isb6:%u\n", (char)c, c, t, isb6(t));
 }
 
+void tr_x32b2(uint64_t b2, const char* s, char q[33], const char* msg)
+{
+	unsigned i, j;
+	uint64_t t[4] = {0, 0, 0, 0};
+	t[0] = b2;
+	x32b2toa(x32uc, deoxy, &t[0]);
+	fprintf(stderr, "%s:\t\t\t\t0x%lx\t0x%lx\t0x%lx\t0x%lx\n", msg, t[0], t[1], t[2], t[3]);
+	for (j = 0; j != 4; ++j) {
+		for (i = 0; i != 8; ++i) {
+			q[i+j*8] = (char)(t[j] >> (i*8));
+		}
+	}
+	q[32] = '\0';
+	fprintf(stderr, "%s\n", s);
+	fprintf(stderr, "%s\n\n", q);
+}
+
 int main()
 {
 	fprintf(stderr, "\nSingle character conversion:\n");
 	test_b6();
 	unsigned i, j;
 	const char* s = "ACTGGTGCCCTGCTCTAAGTTGACCATGTCAC";
-	//const char* s = "AAAAAAAAAAAANAAAAAAAAAAAAAAAAAGA";
 	fprintf(stderr, "\n32 character conversion:\n");
 	fprintf(stderr, "%s\n", s);
 	char q[33];
@@ -40,32 +56,29 @@ int main()
 		printf("Got strange characters in nucleotides\n");
 		return 0;
 	}
-	t[0] = ret;
-	x32b2toa(x32uc, deoxy, &t[0]);
-	fprintf(stderr, "Converted back:\t\t\t\t0x%lx\t0x%lx\t0x%lx\t0x%lx\n", t[0], t[1], t[2], t[3]);
-	for (j = 0; j != 4; ++j) {
-		for (i = 0; i != 8; ++i) {
-			q[i+j*8] = (char)(t[j] >> (i*8));
-		}
-	}
-	q[32] = '\0';
-	fprintf(stderr, "%s\n", s);
-	fprintf(stderr, "%s\n", q);
+  tr_x32b2(ret, s, q, "Converted back");
 
-	fprintf(stderr, "\nAdding one character:\n");
+  uint64_t rc = x32b2_rc(ret);
+  tr_x32b2(rc, s, q, "Reverse complement");
+  fprintf(stderr, "rc_neutral?\n(%lx\t%lx)\n%lx\t%lx\n", ret, rc, rc_neutral(ret), rc_neutral(rc));
+
+
 	i = b6(uc, deoxy, atob2, 'G');
-	ret = x32b2_add_b2(ret, i);
-	t[0] = ret;
-	x32b2toa(x32uc, deoxy, &t[0]);
-	fprintf(stderr, "Converted back:\t\t\t\t0x%lx\t0x%lx\t0x%lx\t0x%lx\n", t[0], t[1], t[2], t[3]);
-	for (j = 0; j != 4; ++j) {
-		for (i = 0; i != 8; ++i) {
-			q[i+j*8] = (char)(t[j] >> (i*8));
-		}
+	ret = x32b2_add_b6(ret, i);
+  tr_x32b2(ret, s, q, "Added one character");
+
+  const char* z = "GGTACGTG";
+  for (i = 0; i != 8; ++i) {
+		t[3] |= (uint64_t)z[i] << (i * 8);
+  }
+
+  ret = x32b2_add_8a(x32uc, deoxy, ret, &t[3]);
+  tr_x32b2(ret, s, q, "Added eight characters");
+	if (t[3]) {
+		printf("Got strange characters in nucleotides\n");
+		return 0;
 	}
-	q[32] = '\0';
-	fprintf(stderr, "%s\n", s);
-	fprintf(stderr, "%s\n", q);
+
 
 	return 0;
 }

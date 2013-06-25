@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "bits/bitasm.h"
+#include "bits/revbin.h"
 
 typedef enum { alt_case = 0x20,	uc = 0x41,	lc = 0x61	} na_case;
 typedef enum { alt_ribose = 0x1,deoxy = 0x11,	oxy = 0x10	} na_ribose;
@@ -121,10 +122,31 @@ void x32b2toa (const x32na_case cs, const na_ribose r, uint64_t s[4])
 /* caller should have called  `c = b6(*c, *oxy, atob2, c)' and tested `isb6(c)'
  * the asmrol is needed due to the somewhat odd 2bit order.
  */
-inline uint64_t x32b2_add_b2(uint64_t x32b2, unsigned c) {
+inline uint64_t x32b2_add_b6(uint64_t x32b2, unsigned c) {
 	x32b2 = asm_rol(x32b2, 8);
 	unsigned t = x32b2 & 0xff;
 	return (x32b2 ^ t) | ((t >> 2) & 0x3f) | (c << 1);
+}
+
+/* add eight ascii characters, caller should check that *s is zero
+ */
+inline uint64_t x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x32b2, uint64_t* s)
+{
+    uint64_t q;
+    q = cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
+    *s = q & ~0x0606060606060606;
+    x32b2 ^= x32b2 & 0xc0c0c0c0c0c0c0c0;
+	  return (x32b2 << 2) | q >> 1;
+}
+
+
+/* reverse complement
+ */
+inline uint64_t x32b2_rc(uint64_t dna)
+{
+    dna = bit_swap_2(dna);
+    dna = bit_swap_4(dna);
+    return bswap(dna) ^ 0xaaaaaaaaaaaaaaaa;
 }
 
 #endif
