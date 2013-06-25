@@ -4,9 +4,9 @@ CFLAGS=		-g -Wall -O2
 CXXFLAGS=	$(CFLAGS)
 DFLAGS=		-DHAVE_PTHREAD #-D_NO_SSE2 #-D_FILE_OFFSET_BITS=64
 OBJS=		
-PROG=		test_b6 # only a test for now
-INCLUDES=	-lm -lz -lpthread
-LIBS=		
+PROG=		fa_b2
+INCLUDES=	
+LIBS=		-lm -lz -lpthread
 SUBDIRS=	.
 
 .SUFFIXES:.c .o .cc
@@ -20,6 +20,9 @@ all:$(PROG)
 
 test_b6:$(OBJS)	test_b6.o
 		$(CC) $(CFLAGS) $(DFLAGS) $(OBJS) test_b6.o -o $@ $(LIBS)
+
+fa_b2:$(OBJS)	fa_b2.o
+		$(CC) $(CFLAGS) $(DFLAGS) $(OBJS) fa_b2.o -o $@ $(LIBS)
 
 clean:
 		rm -f gmon.out *.o a.out $(PROG) *~ *.a
