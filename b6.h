@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include "bits/bitasm.h"
 #include "bits/revbin.h"
+#include "bits/bitcount.h"
 
 typedef enum { alt_case = 0x20,	uc = 0x41,	lc = 0x61	} na_case;
 typedef enum { alt_ribose = 0x1,deoxy = 0x11,	oxy = 0x10	} na_ribose;
@@ -122,7 +123,8 @@ void x32b2toa (const x32na_case cs, const na_ribose r, uint64_t s[4])
 /* caller should have called`c = b6(*c, *oxy, atob2, c)' and tested `isb6(c)'
  * the asmrol is needed due to the somewhat odd 2bit order.
  */
-inline uint64_t x32b2_add_b6(uint64_t x32b2, unsigned c) {
+inline uint64_t x32b2_add_b6(uint64_t x32b2, unsigned c)
+{
 	x32b2 = asm_rol(x32b2, 8);
 	unsigned t = x32b2 & 0xff;
 	return (x32b2 ^ t) | ((t >> 2) & 0x3f) | (c << 1);
@@ -139,7 +141,6 @@ inline uint64_t x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x3
 	return (x32b2 << 2) | q >> 1;
 }
 
-
 /* reverse complement
  */
 inline uint64_t x32b2_rc(uint64_t dna)
@@ -149,4 +150,30 @@ inline uint64_t x32b2_rc(uint64_t dna)
 	return bswap(dna) ^ 0xaaaaaaaaaaaaaaaa;
 }
 
+/* Converts a 2bit into a sequence specific number (rcpx) that has the same high
+ * bits when called with dna template 2bit as when called with its reverse
+ * complement 2bit. x32b2_rcpx() is self-reversible. When called with a rcpx,
+ * it returns the original 2bit.
+ */
+inline uint64_t x32b2_rcpx(uint64_t dna)
+{
+	uint64_t rc = x32b2_rc(dna);
+
+	// A- T- C- A- T  - T- C- G- C- G	=> template
+	// 00-10-01-00-10 - 10-01-11-01-11	template 2bit bits
+	// 01-11-01-11-00 - 00-10-11-00-10	revcmp 2bit bits
+	// C- G- C- G- A  - A- T- G- A- T	=> revcmp
+	//
+	// 01-01-00-11-10 - 10-11-00-01-01	result of xor
+	//					[-----> redundant: first part is same, but per 2 bits reversed
+	//
+	// Store the template part, TCGCG, the rcpx is reversed to 2bit by x32b2_rcpx(rcpx).
+
+	return dna ^ (rc & 0xffffffff00000000);
+}
+
+inline unsigned x32b2_GC_content(uint64_t dna)
+{
+	return bit_count(dna & 0x5555555555555555);
+}
 #endif

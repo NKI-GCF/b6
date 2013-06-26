@@ -18,7 +18,7 @@ SUBDIRS=	.
 
 all:$(PROG)
 
-test_b6.o:bits/revbin.h
+test_b6.o:bits/revbin.h bits/bitcount.h
 
 test_b6:$(OBJS)	test_b6.o
 		$(CC) $(CFLAGS) $(DFLAGS) $(OBJS) test_b6.o -o $@ $(LIBS)
