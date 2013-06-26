@@ -56,29 +56,28 @@ int main()
 		printf("Got strange characters in nucleotides\n");
 		return 0;
 	}
-  tr_x32b2(ret, s, q, "Converted back");
+	tr_x32b2(ret, s, q, "Converted back");
 
-  uint64_t rc = x32b2_rc(ret);
-  tr_x32b2(rc, s, q, "Reverse complement");
-  fprintf(stderr, "rc_neutral?\n(%lx\t%lx)\n%lx\t%lx\n", ret, rc, rc_neutral(ret), rc_neutral(rc));
+	uint64_t rc = x32b2_rc(ret);
+	tr_x32b2(rc, s, q, "Reverse complement");
+	fprintf(stderr, "rc_neutral?\n(%lx\t%lx)\n%lx\t%lx\n", ret, rc, rc_neutral(ret), rc_neutral(rc));
 
 
 	i = b6(uc, deoxy, atob2, 'G');
 	ret = x32b2_add_b6(ret, i);
-  tr_x32b2(ret, s, q, "Added one character");
+	tr_x32b2(ret, s, q, "Added one character");
 
-  const char* z = "GGTACGTG";
-  for (i = 0; i != 8; ++i) {
+	const char* z = "GGTACGTG";
+	for (i = 0; i != 8; ++i) {
 		t[3] |= (uint64_t)z[i] << (i * 8);
-  }
+	}
 
-  ret = x32b2_add_8a(x32uc, deoxy, ret, &t[3]);
-  tr_x32b2(ret, s, q, "Added eight characters");
+	ret = x32b2_add_8a(x32uc, deoxy, ret, &t[3]);
+	tr_x32b2(ret, s, q, "Added eight characters");
 	if (t[3]) {
 		printf("Got strange characters in nucleotides\n");
 		return 0;
 	}
-
 
 	return 0;
 }

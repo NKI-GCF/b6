@@ -119,7 +119,7 @@ void x32b2toa (const x32na_case cs, const na_ribose r, uint64_t s[4])
 	s[3] = cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
 }
 
-/* caller should have called  `c = b6(*c, *oxy, atob2, c)' and tested `isb6(c)'
+/* caller should have called`c = b6(*c, *oxy, atob2, c)' and tested `isb6(c)'
  * the asmrol is needed due to the somewhat odd 2bit order.
  */
 inline uint64_t x32b2_add_b6(uint64_t x32b2, unsigned c) {
@@ -132,11 +132,11 @@ inline uint64_t x32b2_add_b6(uint64_t x32b2, unsigned c) {
  */
 inline uint64_t x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x32b2, uint64_t* s)
 {
-    uint64_t q;
-    q = cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
-    *s = q & ~0x0606060606060606;
-    x32b2 ^= x32b2 & 0xc0c0c0c0c0c0c0c0;
-	  return (x32b2 << 2) | q >> 1;
+	uint64_t q;
+	q = cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
+	*s = q & ~0x0606060606060606;
+	x32b2 ^= x32b2 & 0xc0c0c0c0c0c0c0c0;
+	return (x32b2 << 2) | q >> 1;
 }
 
 
@@ -144,9 +144,9 @@ inline uint64_t x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x3
  */
 inline uint64_t x32b2_rc(uint64_t dna)
 {
-    dna = bit_swap_2(dna);
-    dna = bit_swap_4(dna);
-    return bswap(dna) ^ 0xaaaaaaaaaaaaaaaa;
+	dna = bit_swap_2(dna);
+	dna = bit_swap_4(dna);
+	return bswap(dna) ^ 0xaaaaaaaaaaaaaaaa;
 }
 
 #endif
