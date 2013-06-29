@@ -52,17 +52,16 @@ inline unsigned isb6 (unsigned b6)
 	return (b6 | 0x6) == 0x6;
 }
 
-/* A similar, not entirely reversible conversion of ascii to 6b. It ignores case
+/* A similar, not entirely reversible conversion of ascii to b6. It ignores case
  * and works for both DNA and RNA, but all characters in the range [@-GP-W`-gp-w]
- * produce values that can be interpreted as b6, including 'R', which occurs on
- * hg19, chr3.
+ * produce values interpreted as b6, including 'R', which occurs on hg19, chr3.
  */
 inline unsigned qb6 (unsigned c)
 {
 	return c ^ ((c & 0x31) | 0x40);
 }
 
-/* The macros and functions below are a similar conversion, but for uint64_t
+/* The macros and functions below are a similar conversion, for uint64_t
  */
 typedef enum { x32alt_case = 0x2020202020202020, x32uc = 0x4141414141414141,
 	x32lc = 0x6161616161616161 } x32na_case;
@@ -79,8 +78,8 @@ typedef enum { x32alt_code = 0x4040404040404040, a_to_x32b2 = 0x7575757575757575
 })
 
 /* result 2bit order: 0-8-16-24 - 1-9-17-25 - 2-10-18-26 ... 7-15-23-31
- * this is inconvenient, but requires a lot less shifting.
- * after call, first check (*s | s[1] | s[2] | s[3])l if set there were Ns or alike
+ * inconvenient, but requires a lot less shifting. After call, check that
+ * (s[0] | s[1] | s[2] | s[3]) is zero. if set there were Ns or strange characters.
  */
 uint64_t atox32b2 (const x32na_case cs, const na_ribose r, uint64_t s[4])
 {
@@ -102,7 +101,7 @@ uint64_t atox32b2 (const x32na_case cs, const na_ribose r, uint64_t s[4])
 	return ret | q << 5;
 }
 
-/* s[0] should contain x322bit, this function sets s[0..3]
+/* s[0] should contain x32bit at call, sets s[0..3] to ascii.
  */
 void x32b2toa (const x32na_case cs, const na_ribose r, uint64_t s[4])
 {
@@ -130,7 +129,7 @@ inline uint64_t x32b2_add_b6(uint64_t x32b2, unsigned c)
 	return (x32b2 ^ t) | ((t >> 2) & 0x3f) | (c << 1);
 }
 
-/* add eight ascii characters, caller should check that *s is zero
+/* add eight ascii characters, caller should check that *s is zero or Ns occured
  */
 inline uint64_t x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x32b2, uint64_t* s)
 {
@@ -139,6 +138,15 @@ inline uint64_t x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x3
 	*s = q & ~0x0606060606060606;
 	x32b2 ^= x32b2 & 0xc0c0c0c0c0c0c0c0;
 	return (x32b2 << 2) | q >> 1;
+}
+
+/* reverse complement
+ */
+inline uint64_t x32b2_rev(uint64_t dna)
+{
+	dna = bit_swap_2(dna);
+	dna = bit_swap_4(dna);
+	return bswap(dna);
 }
 
 /* reverse complement
@@ -159,17 +167,64 @@ inline uint64_t x32b2_rcpx(uint64_t dna)
 {
 	uint64_t rc = x32b2_rc(dna);
 
-	// A- T- C- A- T  - T- C- G- C- G	=> template
-	// 00-10-01-00-10 - 10-01-11-01-11	template 2bit bits
-	// 01-11-01-11-00 - 00-10-11-00-10	revcmp 2bit bits
-	// C- G- C- G- A  - A- T- G- A- T	=> revcmp
+	// A- T- C- A- T - T- C- G- C- G => template
+	// 00-10-01-00-10 - 10-01-11-01-11 template 2bit bits
+	// 01-11-01-11-00 - 00-10-11-00-10 revcmp 2bit bits
+	// C- G- C- G- A - A- T- G- A- T => revcmp
 	//
-	// 01-01-00-11-10 - 10-11-00-01-01	result of xor
-	//					[-----> redundant: first part is same, but per 2 bits reversed
+	// 01-01-00-11-10 - 10-11-00-01-01 result of xor
+	// [-----> redundant: first part is same, but per 2 bits reversed
 	//
 	// Store the template part, TCGCG, the rcpx is reversed to 2bit by x32b2_rcpx(rcpx).
+	// m: 0xffffffff00000000 ... (e.g. 0xfebaffff00005410) ... 0xaaaaaaaa55555555
+	uint64_t m = 0xffffffff00000000;
+	return dna ^ (rc & m);
+}
 
-	return dna ^ (rc & 0xffffffff00000000);
+
+ /* The xor revcomp operation causes complementary DNA to have the same rcpx high
+  * bits and order nearby. The lower post-xor 2bit, [AC] or [TG], is not order
+  * important and moved to lower rcpx bits. TODO: propagate more
+  *
+  * Also little significant it is if two sequences differ in just one Nt
+  */
+
+inline uint64_t x32b2_rcpx2(uint64_t dna)
+{
+	uint64_t t, rc = x32b2_rc(dna);
+	dna ^= (rc & 0xffffffff00000000);
+	fprintf(stderr, "\trc was:%lx\n", rc);
+	//rc = x32b2_rev(dna);
+	//fprintf(stderr, "\trc became:%lx\n", rc);
+	//dna ^= (rc & 0xffff0000);
+	/*rc = x32b2_rc(dna);
+	dna ^= (rc & 0xff00);
+	rc = x32b2_rc(dna);
+	dna ^= (rc & 0xf0);
+	rc = x32b2_rc(dna);
+	dna ^= (rc & 0xc);*/
+
+	t = dna & 0x5555aaaa00000000; // add info whether it is an AC or TG in key for sorting
+	dna ^= t ^ (((t & 0x5555000000000000) >> 15) | ((t & 0xaaaa00000000) << 15));
+	dna ^
+	return dna;
+}
+
+inline uint64_t x32b2_rev_rcpx2(uint64_t rcpx)
+{
+	uint64_t rc, t = rcpx & 0x5555aaaa00000000;
+	rcpx ^= t ^ (((t & 0x5555000000000000) >> 15) | ((t & 0xaaaa00000000) << 15));
+	/*rc = x32b2_rc(rcpx);
+	rcpx ^= (rc & 0xc);
+	rc = x32b2_rc(rcpx);
+	rcpx ^= (rc & 0xf0);
+	rc = x32b2_rc(rcpx);
+	rcpx ^= (rc & 0xff00);*/
+	//rc = x32b2_rev(rcpx); // x32b2_rev(rcpx ^ rc); ?
+	//rcpx ^= (rc & 0xffff0000);
+	rc = x32b2_rc(rcpx);
+	rcpx ^= (rc & 0xffffffff00000000);
+	return rcpx;
 }
 
 inline unsigned x32b2_GC_content(uint64_t dna)
