@@ -193,6 +193,14 @@ inline uint64_t x32b2_rcpx(uint64_t dna)
 	x ^ t ^ asm_ror(t, shft);				\
 })
 
+inline uint64_t swap_mode(uint64_t dna, unsigned mode)
+{	uint64_t t;
+	switch (mode & 0x18) {
+		case 0x8:	return __M_SWAP(dna, t, 0x5555, 0xaaaa0000, 17);
+		case 0x10:	return __M_SWAP(dna, t, 0x555500000000, 0xaaaa000000000000, 17);
+		case 0x18:	return __M_SWAP(dna, t, 0x555500005555, 0xaaaa0000aaaa0000, 17);
+		default: return 0;
+}	}
 
  /* The xor revcomp operation causes complementary DNA to have the same rcpx high
   * bits and order nearby. The lower post-xor 2bit, [AC] or [TG], is not order
@@ -201,40 +209,32 @@ inline uint64_t x32b2_rcpx(uint64_t dna)
   * Also little significant it is if two sequences differ in just one Nt
   */
 
-inline uint64_t x32b2_rcpx2(uint64_t dna)
+inline uint64_t x32b2_rcpx2(uint64_t dna, unsigned mode)
 {
-	uint64_t t, rc = x32b2_rc(dna);
-	dna ^= (rc & 0xffffffff00000000);
-
-	// more options: 1) swap bits in 0x5555aaaa00000000
-	// 2) swap or reverse dependent on 0x55555555 bit mask
-	t = dna & 0x55555555aaaaaaaa;
-	dna ^= t ^ revbin(t);
-
-	// after revbin, this clusters high and low bits
-	//dna = __M_SWAP(dna, t, 0x0000aaaa0000aaaa, 0x5555000055550000, 15);
-	dna = __M_SWAP(dna, t, 0x0000aaaa0000aaaa, 0x5555000055550000, 15);
-	//dna ^= (dna >> 1); // gray
+	uint64_t rc;
+	rc = x32b2_rc(dna);
+	dna ^= (rc & (mode & 0x20 ? 0xffffffff00000000 : 0xffffffff));
+	dna = swap_mode(dna, mode);
+	if (mode & 7)
+		dna ^= (dna >> (1 << ((mode & 7) - 1))); // gray
 	return dna;
 }
 
-inline uint64_t x32b2_rev_rcpx2(uint64_t rcpx)
+inline uint64_t x32b2_rev_rcpx2(uint64_t dna, unsigned mode)
 {
-	// inverse_gray
-	/*unsigned gs = 1;
-	do {
-		rcpx ^= rcpx >> gs;
-		gs <<= 1;
-	} while (gs != 64);*/
+	if (mode & 7) {
+		unsigned gs = (1 << ((mode & 7) - 1));// inverse_gray
+		do {
+			dna ^= dna >> gs;
+			gs <<= 1;
+		} while (gs < 64);
+	}
 
-	uint64_t rc, t;
-	rcpx = __M_SWAP(rcpx, t, 0x0000aaaa0000aaaa, 0x5555000055550000, 15);
-	t = rcpx & 0x55555555aaaaaaaa;
-	rcpx ^= t ^ revbin(t);
-
-	rc = x32b2_rc(rcpx);
-	rcpx ^= (rc & 0xffffffff00000000);
-	return rcpx;
+	uint64_t rc;
+	dna = swap_mode(dna, mode);
+	rc = x32b2_rc(dna);
+	dna ^= (rc & (mode & 0x20 ? 0xffffffff00000000: 0xffffffff));
+	return dna;
 }
 
 //TODO: for multiple x32b2 fragments we could do this in a smarter way.
