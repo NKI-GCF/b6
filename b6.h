@@ -17,6 +17,8 @@
 
 #ifndef RK_B6_H
 #define RK_B6_H
+#define BITS_PER_LONG 64
+
 #include <stdint.h>
 #include <unistd.h>
 #include "bits/bitasm.h"
@@ -119,6 +121,9 @@ void x32b2toa (const x32na_case cs, const na_ribose r, uint64_t s[4])
 	s[3] = cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
 }
 
+ /* TODO: function that orders 2bit, a least for testing */
+
+
 /* caller should have called`c = b6(*c, *oxy, atob2, c)' and tested `isb6(c)'
  * the asmrol is needed due to the somewhat odd 2bit order.
  */
@@ -193,42 +198,54 @@ inline uint64_t x32b2_rcpx2(uint64_t dna)
 {
 	uint64_t t, rc = x32b2_rc(dna);
 	dna ^= (rc & 0xffffffff00000000);
-	fprintf(stderr, "\trc was:%lx\n", rc);
-	//rc = x32b2_rev(dna);
-	//fprintf(stderr, "\trc became:%lx\n", rc);
-	//dna ^= (rc & 0xffff0000);
-	/*rc = x32b2_rc(dna);
-	dna ^= (rc & 0xff00);
-	rc = x32b2_rc(dna);
-	dna ^= (rc & 0xf0);
-	rc = x32b2_rc(dna);
-	dna ^= (rc & 0xc);*/
 
-	t = dna & 0x5555aaaa00000000; // add info whether it is an AC or TG in key for sorting
-	dna ^= t ^ (((t & 0x5555000000000000) >> 15) | ((t & 0xaaaa00000000) << 15));
-	dna ^
+	// more options: 1) swap bits in 0x5555aaaa00000000
+	// 2) swap or reverse dependent on 0x55555555 bit mask
+	t = dna & 0x55555555aaaaaaaa;
+	dna ^= t ^ revbin(t);
+
+	t = dna & 0x0000aaaa0000aaaa; // after revbin, this clusters high and low bits
+	dna ^= t;
+	t <<= 15;
+	dna ^= t;
+	t ^= (dna & 0x5555000055550000);
+	dna ^= t;
+	t >>= 15;
+	dna ^= t;
+	//dna ^= (dna >> 1); // gray
 	return dna;
 }
 
 inline uint64_t x32b2_rev_rcpx2(uint64_t rcpx)
 {
-	uint64_t rc, t = rcpx & 0x5555aaaa00000000;
-	rcpx ^= t ^ (((t & 0x5555000000000000) >> 15) | ((t & 0xaaaa00000000) << 15));
-	/*rc = x32b2_rc(rcpx);
-	rcpx ^= (rc & 0xc);
-	rc = x32b2_rc(rcpx);
-	rcpx ^= (rc & 0xf0);
-	rc = x32b2_rc(rcpx);
-	rcpx ^= (rc & 0xff00);*/
-	//rc = x32b2_rev(rcpx); // x32b2_rev(rcpx ^ rc); ?
-	//rcpx ^= (rc & 0xffff0000);
+	// inverse_gray
+	/*unsigned gs = 1;
+	do {
+		rcpx ^= rcpx >> gs;
+		gs <<= 1;
+	} while (gs != 64);*/
+
+	uint64_t rc, t;
+	t = rcpx & 0x0000aaaa0000aaaa;
+	rcpx ^= t;
+	t <<= 15;
+	rcpx ^= t;
+	t ^= (rcpx & 0x5555000055550000);
+	rcpx ^= t;
+	t >>= 15;
+	rcpx ^= t;
+	t = rcpx & 0x55555555aaaaaaaa;
+	rcpx ^= t ^ revbin(t);
+
 	rc = x32b2_rc(rcpx);
 	rcpx ^= (rc & 0xffffffff00000000);
 	return rcpx;
 }
 
+//TODO: for multiple x32b2 fragments we could do this in a smarter way.
 inline unsigned x32b2_GC_content(uint64_t dna)
 {
 	return bit_count(dna & 0x5555555555555555);
 }
+
 #endif
