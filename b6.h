@@ -186,6 +186,13 @@ inline uint64_t x32b2_rcpx(uint64_t dna)
 	return dna ^ (rc & m);
 }
 
+#define __M_SWAP(x, t, m1, m2, shft) ({		\
+	x ^= (t = x & m1);						\
+	x ^= (t = asm_rol(t, shft));			\
+	t ^= x & m2;							\
+	x ^ t ^ asm_ror(t, shft);				\
+})
+
 
  /* The xor revcomp operation causes complementary DNA to have the same rcpx high
   * bits and order nearby. The lower post-xor 2bit, [AC] or [TG], is not order
@@ -204,14 +211,9 @@ inline uint64_t x32b2_rcpx2(uint64_t dna)
 	t = dna & 0x55555555aaaaaaaa;
 	dna ^= t ^ revbin(t);
 
-	t = dna & 0x0000aaaa0000aaaa; // after revbin, this clusters high and low bits
-	dna ^= t;
-	t <<= 15;
-	dna ^= t;
-	t ^= (dna & 0x5555000055550000);
-	dna ^= t;
-	t >>= 15;
-	dna ^= t;
+	// after revbin, this clusters high and low bits
+	//dna = __M_SWAP(dna, t, 0x0000aaaa0000aaaa, 0x5555000055550000, 15);
+	dna = __M_SWAP(dna, t, 0x0000aaaa0000aaaa, 0x5555000055550000, 15);
 	//dna ^= (dna >> 1); // gray
 	return dna;
 }
@@ -226,14 +228,7 @@ inline uint64_t x32b2_rev_rcpx2(uint64_t rcpx)
 	} while (gs != 64);*/
 
 	uint64_t rc, t;
-	t = rcpx & 0x0000aaaa0000aaaa;
-	rcpx ^= t;
-	t <<= 15;
-	rcpx ^= t;
-	t ^= (rcpx & 0x5555000055550000);
-	rcpx ^= t;
-	t >>= 15;
-	rcpx ^= t;
+	rcpx = __M_SWAP(rcpx, t, 0x0000aaaa0000aaaa, 0x5555000055550000, 15);
 	t = rcpx & 0x55555555aaaaaaaa;
 	rcpx ^= t ^ revbin(t);
 
