@@ -199,9 +199,38 @@ inline uint64_t swap_mode(uint64_t dna, unsigned mode)
 		case 0x8:	return __M_SWAP(dna, t, 0x5555, 0xaaaa0000, 17);
 		case 0x10:	return __M_SWAP(dna, t, 0x555500000000, 0xaaaa000000000000, 17);
 		case 0x18:	return __M_SWAP(dna, t, 0x555500005555, 0xaaaa0000aaaa0000, 17);
-		default: return 0;
+		default: return dna;
 }	}
+uint64_t op5(uint64_t dna, uint64_t oldrc)
+{
+	uint64_t rc = x32b2_rc(dna);
+	return dna;// ^ ((rc >> 60) & 0xc);
+}
 
+uint64_t op4(uint64_t dna, uint64_t oldrc)
+{
+	uint64_t rc = x32b2_rc(dna);
+	return dna;// ^ ((rc >> 56) & 0xf0);
+}
+
+uint64_t op3(uint64_t dna, uint64_t oldrc)
+{
+	uint64_t rc = x32b2_rc(dna);
+	return dna;// ^ ((rc >> 48) & 0xff00);
+}
+
+uint64_t op2(uint64_t dna, uint64_t oldrc)
+{
+	uint64_t rc = x32b2_rc(dna);
+	rc = (rc >> 32);
+	return dna ^ ((oldrc ^ rc) & 0xffff0000);
+}
+
+uint64_t op1(uint64_t dna, uint64_t oldrc)
+{
+	uint64_t rc = x32b2_rc(dna);
+	return dna ^ (rc & 0xffffffff00000000);
+}
  /* The xor revcomp operation causes complementary DNA to have the same rcpx high
   * bits and order nearby. The lower post-xor 2bit, [AC] or [TG], is not order
   * important and moved to lower rcpx bits. TODO: propagate more
@@ -211,9 +240,15 @@ inline uint64_t swap_mode(uint64_t dna, unsigned mode)
 
 inline uint64_t x32b2_rcpx2(uint64_t dna, unsigned mode)
 {
-	uint64_t rc;
-	rc = x32b2_rc(dna);
-	dna ^= (rc & (mode & 0x20 ? 0xffffffff00000000 : 0xffffffff));
+	uint64_t rc = x32b2_rc(dna);
+	dna = op1(dna, rc);
+	dna = op2(dna, rc);
+	dna = op3(dna, rc);
+	dna = op4(dna, rc);
+	dna = op5(dna, rc);
+
+	//rc = x32b2_rc(dna);
+	//dna ^= (rc ^ ((dna ^ rc) >> 32)) & 0xffff0000;
 	dna = swap_mode(dna, mode);
 	if (mode & 7)
 		dna ^= (dna >> (1 << ((mode & 7) - 1))); // gray
@@ -230,10 +265,13 @@ inline uint64_t x32b2_rev_rcpx2(uint64_t dna, unsigned mode)
 		} while (gs < 64);
 	}
 
-	uint64_t rc;
 	dna = swap_mode(dna, mode);
-	rc = x32b2_rc(dna);
-	dna ^= (rc & (mode & 0x20 ? 0xffffffff00000000: 0xffffffff));
+	uint64_t rc = x32b2_rc(dna);
+	dna = op5(dna, rc);
+	dna = op4(dna, rc);
+	dna = op3(dna, rc);
+	dna = op2(dna, rc);
+	dna = op1(dna, rc);
 	return dna;
 }
 
