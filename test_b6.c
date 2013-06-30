@@ -60,7 +60,6 @@ int main()
 
 	uint64_t rc = x32b2_rc(ret);
 	tr_x32b2(rc, s, q, "Reverse complement");
-	fprintf(stderr, "rc_neutral?\n(%lx\t%lx)\n%lx\t%lx\n", ret, rc, rc_neutral(ret), rc_neutral(rc));
 
 
 	i = b6(uc, deoxy, atob2, 'G');
