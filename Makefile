@@ -4,7 +4,7 @@ CFLAGS=		-g -Wall -O2
 CXXFLAGS=	$(CFLAGS)
 DFLAGS=		-DHAVE_PTHREAD #-D_NO_SSE2 #-D_FILE_OFFSET_BITS=64
 OBJS=		
-PROG=		fa_b2
+PROG=		test_b6
 INCLUDES=	
 LIBS=		-lm -lz -lpthread
 SUBDIRS=	.
