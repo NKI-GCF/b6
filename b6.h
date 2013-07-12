@@ -67,14 +67,13 @@ qb6(unsigned c)
 }
 
 /* The macros and functions below are a similar conversion, for uint64_t
- */
 typedef enum { x32alt_case = 0x2020202020202020, x32uc = 0x4141414141414141,
   x32lc = 0x6161616161616161
 } x32na_case;
 typedef enum { x32alt_code = 0x4040404040404040, a_to_x32b2 =
     0x7575757575757575,
   x32b2_to_a = 0x3535353535353535
-} x32na_conversion;
+} x32na_conversion;*/
 
 #  define __x32b2_convert(src, conv, r, tmp) ({			\
 	tmp = conv ^ (src | 0x3131313131313131);		\
@@ -90,23 +89,24 @@ typedef enum { x32alt_code = 0x4040404040404040, a_to_x32b2 =
  * (s[0] | s[1] | s[2] | s[3]) is zero. if set there were Ns or strange characters.
  */
 uint64_t
-atox32b2(const x32na_case cs, const na_ribose r, uint64_t s[4])
+uo_atox32b2(const na_case cs, const na_ribose r, uint64_t s[4])
 {
-  uint64_t q, ret;
+  uint64_t q, ret, a_to_x32b2 = atob2 * 0x0101010101010101;
+	uint64_t x32cs = cs * 0x0101010101010101;
 
-  q = cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
+  q = x32cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
   *s = q & ~0x0606060606060606;
   ret = q >> 1;
 
-  q = cs ^ __x32b2_convert(s[1], a_to_x32b2, r, q);
+  q = x32cs ^ __x32b2_convert(s[1], a_to_x32b2, r, q);
   s[1] = q & ~0x0606060606060606;
   ret |= q << 1;
 
-  q = cs ^ __x32b2_convert(s[2], a_to_x32b2, r, q);
+  q = x32cs ^ __x32b2_convert(s[2], a_to_x32b2, r, q);
   s[2] = q & ~0x0606060606060606;
   ret |= q << 3;
 
-  q = cs ^ __x32b2_convert(s[3], a_to_x32b2, r, q);
+  q = x32cs ^ __x32b2_convert(s[3], a_to_x32b2, r, q);
   s[3] = q & ~0x0606060606060606;
   return ret | q << 5;
 }
@@ -114,24 +114,53 @@ atox32b2(const x32na_case cs, const na_ribose r, uint64_t s[4])
 /* s[0] should contain x32bit at call, sets s[0..3] to ascii.
  */
 void
-x32b2toa(const x32na_case cs, const na_ribose r, uint64_t s[4])
+uo_x32b2toa(const na_case cs, const na_ribose r, uint64_t s[4])
 {
-  uint64_t t, q, orig = *s;
+  uint64_t t, q, orig = *s, x32b2_to_a = b2toa * 0x0101010101010101;
+	//orig = __scramble_x32b8(orig, t);
+	uint64_t x32cs = cs * 0x0101010101010101;
 
   t = (orig & 0x0303030303030303) << 1;
-  *s = cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
+  *s = x32cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
 
   t = (orig >> 1) & 0x0606060606060606;
-  s[1] = cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
+  s[1] = x32cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
 
   t = (orig >> 3) & 0x0606060606060606;
-  s[2] = cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
+  s[2] = x32cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
 
   t = (orig >> 5) & 0x0606060606060606;
-  s[3] = cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
+  s[3] = x32cs ^ __x32b2_convert(t, x32b2_to_a, r, q);
 }
 
  /* TODO: function that orders 2bit, a least for testing */
+uint64_t
+atox32b2(const na_case cs, const na_ribose r, uint64_t s[4])
+{
+	uint64_t  ret = 0ul;
+	unsigned i, c, gotN = 0;
+	for (i = 0; i != 32; ++i) {
+		c = b6(cs, r, atob2, s[i >> 3] & 0xff);
+		ret |= (uint64_t)((c & 6) >> 1) << (i << 1);
+		s[i >> 3] >>= 8;
+		gotN |= !isb6(c) << i;
+	}
+	s[0] = s[1] = s[2] = s[3] = gotN;
+	return ret;
+}
+
+void
+x32b2toa(const na_case cs, const na_ribose r, uint64_t s[4])
+{
+	uint64_t  orig = *s;
+	unsigned i, c;
+	s[0] = s[1] = s[2] = s[3] = 0;
+	for (i = 0; i != 32; ++i) {
+		c = b6(cs, r, b2toa, ((orig >> (i << 1)) << 1) & 0x6);
+		s[i >> 3] |= (uint64_t)c << ((i & 7) << 3);
+	}
+}
+
 
 
 /* caller should have called`c = b6(*c, *oxy, atob2, c)' and tested `isb6(c)'
@@ -149,12 +178,13 @@ x32b2_add_b6(uint64_t x32b2, unsigned c)
 /* add eight ascii characters, caller should check that *s is zero or Ns occured
  */
 inline uint64_t
-x32b2_add_8a(const x32na_case cs, const na_ribose r, uint64_t x32b2,
+x32b2_add_8a(const na_case cs, const na_ribose r, uint64_t x32b2,
 	     uint64_t * s)
 {
   uint64_t q;
+	uint64_t x32cs = cs * 0x0101010101010101, a_to_x32b2 = atob2 * 0x0101010101010101;
 
-  q = cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
+  q = x32cs ^ __x32b2_convert(*s, a_to_x32b2, r, q);
   *s = q & ~0x0606060606060606;
   x32b2 ^= x32b2 & 0xc0c0c0c0c0c0c0c0;
   return (x32b2 << 2) | q >> 1;
@@ -223,12 +253,13 @@ x32b2_rcpx(uint64_t dna)
 inline uint64_t
 x32b2_rcpx2(uint64_t dna)
 {
-  uint64_t rc, t;
+	uint64_t rc, t;
 	rc = x32b2_rc(dna);
-	// key must be reversible
-	dna ^= rc & 0xffffffff00000000;
-	dna = __M_SWAP(dna, t, 0xaaaa00000000, 0x5555000000000000, 15);
-	dna ^= dna >> 2;
+	t = rc & 0xffffffff00000000;
+	dna ^= t;
+	t = (dna & t & -t) == 0;							// one if rightmost of differing high bits is set.
+	dna ^= -t & (rc ^ dna) & 0xffffffff;	// flip differing bits if rightmost was set
+	dna ^= (dna & 1) ^ t;									// first bit always reflects this
 
   return dna;
 }
@@ -236,16 +267,15 @@ x32b2_rcpx2(uint64_t dna)
 inline uint64_t
 x32b2_rev_rcpx2(uint64_t dna)
 {
-  uint64_t rc, t;
-  dna ^= dna >> 2; //inverse nucleotide gray
-  dna ^= dna >> 4;
-  dna ^= dna >> 8;
-  dna ^= dna >> 16;
-  dna ^= dna >> 32;
-	dna = __M_SWAP(dna, t, 0xaaaa00000000, 0x5555000000000000, 15);
-	rc = x32b2_rc(dna);
-	dna ^= (rc & 0xffffffff00000000);
-  return dna;
+	uint64_t x, t, q = dna & 1;		// q: did i flip all deviating bits?
+	x = dna & 0xffffffff00000000; // the deviating bits
+	t = x & -x & dna;							// the rightmost of differing high bits
+	t = q ^ (t == 0);							// whether the first bit was flipped
+	dna ^= t;											// if so flip it back
+	x = x32b2_rev(dna ^ (-!q & x)) ^ (-q & x); // depending on q..
+	dna ^= x ^ 0xaaaaaaaa00000000;
+
+	return dna;
 }
 
 //TODO: for multiple x32b2 fragments we could do this in a smarter way.
