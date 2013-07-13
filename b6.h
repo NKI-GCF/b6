@@ -286,13 +286,16 @@ x32b2_rcpx2(uint64_t dna)
 inline uint64_t
 x32b2_rev_rcpx2(uint64_t dna)
 {
-	uint64_t x, t, q = dna & 1;	// q: did i flip all deviating bits?
-	x = dna & 0xffffffff00000000;	// the deviating bits
-	t = x & -x & dna;		// the rightmost of differing high bits
-	t = q ^ (t == 0);		// whether the first bit was flipped
-	dna ^= t;			// if so flip it back
-	x = x32b2_rev(dna ^ (-!q & x)) ^ (-q & x); // depending on q..
-	dna ^= x ^ 0xaaaaaaaa00000000;
+	uint64_t r, t;
+	t = dna & 0xffffffff00000000;        // the deviating bits, which we
+	r = x32b2_rev(dna);                  // also need in lower, in high we'll
+	r ^= -(dna & 1) & t;                 //  reconstruct rc. pt 1: flip devi bits
+	dna ^= -(dna & 1) & r & 0xffffffff;	 // flip dev in lower, for almost orig seq
+	t &= -t & dna;                       // i.e. rightmost of differing high bits
+	t = (dna & 1) ^ (t == 0);            // determine whether first bit was flipped
+	dna ^= t;                            // if so flip it back and lower is ready.
+	r ^= 0xaaaaaaaa00000000 ^ (t << 62); // r has revcomp now and is ready to flip
+	dna ^= r & 0xffffffff00000000;       //  high bits in dna to orig sequence.
 
 	return dna;
 }
